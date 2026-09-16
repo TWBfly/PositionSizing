@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>期货全品种活跃合约仓位、风险与资金管理系统 | 凯利模型实盘仪表盘</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=11">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="dark-theme">
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-badge">QUANT SIZING</div>
+      <div class="header-titles">
+        <h1>期货量化动态头寸管理与多层风控系统</h1>
+        <p class="subtitle">Quantitative Futures Position Sizing & Multi-Layered Risk Firewall Architecture</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="badge badge-success" style="font-size: 12px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; font-weight: 500;">
+        <span class="live-dot" style="width: 8px; height: 8px;"></span> 全自动实时自适应计算中
+      </span>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+
+    <!-- Tianqin Quant & Jump Volatility Risk Control Banner -->
+    <section class="tq-status-banner">
+      <div class="tq-status-left">
+        <div class="tq-live-badge" id="tqLiveBadge">
+          <span class="live-dot"></span>
+          <span id="tqStatusText">天勤量化已接入 (TqSdk Online)</span>
+        </div>
+        <div class="tq-account-tag" id="tqAccountTag">天勤账号: 138****8039</div>
+        <div class="tq-price-tag">基准现价: <strong>昨日收盘价 (pre_close)</strong></div>
+        <div class="tq-gap-tag">高低开跳空风控: <strong>自适应波动溢价补偿</strong></div>
+      </div>
+      <div class="tq-status-right">
+        <span class="tq-sync-time" id="tqSyncTime">最后同步: 实时</span>
+        <button class="btn btn-sm btn-outline" id="btnRefreshTq" title="重新从天勤量化抓取昨日收盘价、真实ATR与隔夜跳空率">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          刷新天勤行情
+        </button>
+        <button class="btn btn-sm btn-text text-gold" id="btnToggleTqDetails">
+          天勤数据源与字段说明 ▾
+        </button>
+      </div>
+    </section>
+
+    <!-- TqSdk Data Source Disclosure Panel (Collapsible) -->
+    <div class="tq-details-panel hidden" id="tqDetailsPanel">
+      <div class="tq-details-content">
+        <div class="tq-col">
+          <h4 class="text-green">✓ 已从天勤量化直接获取并实时计算的数据：</h4>
+          <ul>
+            <li><strong>参考现价 (pre_close)</strong>：统一以昨日收盘价为准，杜绝盘中跳动漂移干扰风控基准；</li>
+            <li><strong>合约乘数 & 最小变动价位</strong>：从天勤 <code>volume_multiple</code> 与 <code>price_tick</code> 原生读取；</li>
+            <li><strong>真实 14 日历史 ATR</strong>：基于天勤日 K 线真实波幅动态计算；</li>
+            <li><strong>高开低开跳空波动风险统计</strong>：自动统计过去 30 日日 K 线的隔夜跳空幅度 $|Open_t - Close_{t-1}|$ 与跳空比率。对容易大幅跳空的品种（原油、白银、集运欧线、焦煤、纯碱等）动态施加跳空惩罚系数（Gap Penalty 1.0x~1.8x），科学拓宽有效止损并下调推荐开仓手数，防止隔夜跳空直接打穿止损。</li>
+          </ul>
+        </div>
+        <div class="tq-col">
+          <h4 class="text-warning">⚠ 无法从天勤直接获取 / 由系统量化风控库科学维护的数据告知：</h4>
+          <ul>
+            <li><strong>① 期货公司实盘加收保证金率 (margin_rate)</strong>：天勤仅提供交易所最低标准（如螺纹 7%），而实盘各期货公司普遍加收 2%~5%（实收 10%~12%）。若直接用交易所标准开仓极易因保证金不足废单或穿仓，系统内置各期货公司审慎标准；</li>
+            <li><strong>② 产业链机制聚类归属 (cluster)</strong>：黑色建材链、贵金属避险链、有色工业金属链等同源性风险聚类属于宏观多资产量化投研模型分类，交易所无此原生字段；</li>
+            <li><strong>③ 账户单品种物理手数上限 (table_max_lots)</strong>：基于账户总资金规模与市场冲击成本的风控规则参数。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preset Scenario Selector -->
+    <section class="preset-banner">
+      <div class="preset-label">
+        <span class="pulse-dot"></span>
+        实盘预设方案：
+      </div>
+      <div class="preset-buttons" id="presetButtons">
+        <!-- Injected via JS -->
+      </div>
+    </section>
+
+    <!-- Control Parameters Panel -->
+    <section class="card control-panel">
+      <div class="panel-header">
+        <div>
+          <h2>核心账户与策略参数输入</h2>
+          <p class="section-desc">用户仅需输入资金、胜率与盈亏比，其余量化风控参数由系统自动计算与托管</p>
+        </div>
+        <span class="tag tag-blue">三要素极简驱动</span>
+      </div>
+      
+      <div class="controls-grid primary-controls-grid">
+        <!-- 1. Capital Input -->
+        <div class="control-group">
+          <label for="inputEquity">
+            <span>① 账户总权益 (Equity)</span>
+            <span class="unit-label">RMB</span>
+          </label>
+          <div class="input-with-addons">
+            <span class="currency-symbol">¥</span>
+            <input type="number" id="inputEquity" value="1000000" step="50000" min="10000">
+          </div>
+          <div class="quick-chips">
+            <button type="button" class="chip" data-equity="500000">50万</button>
+            <button type="button" class="chip active" data-equity="1000000">100万</button>
+            <button type="button" class="chip" data-equity="2000000">200万</button>
+            <button type="button" class="chip" data-equity="5000000">500万</button>
+            <button type="button" class="chip" data-equity="10000000">1000万</button>
+          </div>
+        </div>
+
+        <!-- 2. Win Rate Range Input -->
+        <div class="control-group">
+          <div class="label-row">
+            <label>
+              <span>② 策略综合胜率区间 (Win Rate)</span>
+              <span class="unit-label">参考 30% ~ 40%</span>
+            </label>
+            <span class="slider-val" id="valWinRateMid">中枢 35.0%</span>
+          </div>
+          <div class="range-inputs">
+            <div class="input-with-addons has-suffix">
+              <input type="number" id="inputWinRateMin" value="30.0" step="0.5" min="5" max="95" placeholder="下限 30">
+              <span class="input-suffix">%</span>
+            </div>
+            <span class="range-sep">至</span>
+            <div class="input-with-addons has-suffix">
+              <input type="number" id="inputWinRateMax" value="40.0" step="0.5" min="5" max="95" placeholder="上限 40">
+              <span class="input-suffix">%</span>
+            </div>
+          </div>
+          <div class="slider-hint">请输入策略实盘或回测胜率区间 (典型参考 30% ~ 40%)</div>
+        </div>
+
+        <!-- 3. Win/Loss Ratio Range Input -->
+        <div class="control-group">
+          <div class="label-row">
+            <label>
+              <span>③ 策略盈亏比区间 (Payoff Ratio)</span>
+              <span class="unit-label">参考 2.5 ~ 4.0</span>
+            </label>
+            <span class="slider-val" id="valWinLossMid">中枢 3.25 : 1</span>
+          </div>
+          <div class="range-inputs">
+            <div class="input-with-addons has-suffix">
+              <input type="number" id="inputWinLossMin" value="2.5" step="0.1" min="0.5" max="20.0" placeholder="下限 2.5">
+              <span class="input-suffix">: 1</span>
+            </div>
+            <span class="range-sep">至</span>
+            <div class="input-with-addons has-suffix">
+              <input type="number" id="inputWinLossMax" value="4.0" step="0.1" min="0.5" max="20.0" placeholder="上限 4.0">
+              <span class="input-suffix">: 1</span>
+            </div>
+          </div>
+          <div class="slider-hint" id="winLossHint">请输入平均盈利/平均亏损区间 (典型参考 2.5 ~ 4.0)</div>
+          <div id="winLossKellyWarning" style="display: none;"></div>
+        </div>
+      </div>
+
+      <!-- Advanced Risk Settings Accordion (Auto-managed, collapsed by default) -->
+      <details class="advanced-settings-details">
+        <summary class="advanced-settings-summary">
+          <div class="summary-left">
+            <span class="summary-icon">⚙️</span>
+            <span class="summary-title">高级风控与极端情景模拟 (系统已自动托管最优参数，点击可展开模拟)</span>
+          </div>
+          <span class="auto-badge">✓ 自动托管中</span>
+        </summary>
+        <div class="advanced-settings-body">
+          <div class="advanced-info-banner">
+            💡 <strong>系统自动托管说明</strong>：量化实盘中，系统默认采用最佳风控策略：
+            <ul>
+              <li><strong>当前回撤深度 (Hysteresis DD)</strong>：实盘账户较历史峰值的浮亏比率。系统初始默认 <strong>0.0% (1.0x 全额运作)</strong>。实盘中若产生回撤，系统自动阶梯降仓防守，无需手动修改；</li>
+              <li><strong>单集群风险硬顶 (Cluster Cap)</strong>：黑色系与建材等同一产业链总风险上限。系统已按量化风控标准自动锁定 <strong>30.0%</strong>，防止多品种同向跌停共振爆仓；</li>
+              <li><strong>凯利系数 (Fractional Kelly)</strong>：系统自动锁定最佳实盘分数 <strong>0.20x</strong>（对应 2.5%~3.0% 安全止损预算，杜绝全凯利爆仓）。</li>
+            </ul>
+          </div>
+          <div class="controls-grid advanced-controls-grid">
+            <!-- Fractional Kelly Selector -->
+            <div class="control-group">
+              <div class="label-row">
+                <label for="selectKellyFrac">凯利系数 (Fractional Kelly)</label>
+                <span class="slider-val text-gold" id="valKellyFrac">0.20x</span>
+              </div>
+              <select id="selectKellyFrac" class="select-box">
+                <option value="0.10">0.10x (极保守，回撤极限防御)</option>
+                <option value="0.15">0.15x (稳健型，低波动资金曲线)</option>
+                <option value="0.20" selected>0.20x (推荐！稳健实盘风险映射)</option>
+                <option value="0.25">0.25x (进取型，1/4 Kelly 理论平原)</option>
+              </select>
+              <div class="slider-hint text-warning">※ 严禁使用全凯利 (1.0x)，0.20x 对应 2.5%~3% 风险预算</div>
+            </div>
+
+            <!-- Drawdown Circuit Breaker Slider -->
+            <div class="control-group">
+              <div class="label-row">
+                <label for="sliderDrawdown">当前回撤深度 (Hysteresis DD)</label>
+                <span class="slider-val" id="valDrawdown">0.0%</span>
+              </div>
+              <input type="range" id="sliderDrawdown" min="0" max="15" step="0.5" value="0.0">
+              <div class="circuit-status" id="circuitBadge">
+                <span class="badge badge-success">正常运作 (1.0x)</span>
+              </div>
+              <div class="slider-hint">模拟实盘回撤时的迟滞降杠杆保护</div>
+            </div>
+
+            <!-- Cluster Cap Rate Slider -->
+            <div class="control-group">
+              <div class="label-row">
+                <label for="sliderClusterCap">单集群风险硬顶 (Cluster Cap)</label>
+                <span class="slider-val" id="valClusterCap">30%</span>
+              </div>
+              <input type="range" id="sliderClusterCap" min="15" max="45" step="1" value="30">
+              <div class="slider-hint">防止黑色+建材产业链共振吞噬组合风险预算</div>
+            </div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- Three Main Gauges & Mathematical Cards -->
+    <section class="gauges-grid">
+      <!-- Card 1: Margin Utilization Gauge -->
+      <div class="card gauge-card gauge-card-highlight">
+        <div class="gauge-card-header">
+          <span class="card-icon icon-margin">⚡</span>
+          <div>
+            <h3>可调度保证金额度 (Deployable Margin)</h3>
+            <p>凯利公式自适应测算 · 建议常态 25%~30%，软上限 35%</p>
+          </div>
+        </div>
+        <div class="metric-main">
+          <div class="metric-num text-gold" id="gaugeMarginVal">¥0</div>
+          <div class="metric-sub" id="gaugeMarginPct">占比 0.0% / 预算安全上限 ¥0 (35%)</div>
+        </div>
+        <div class="progress-container">
+          <div class="progress-bar" id="barMargin" style="width: 0%;"></div>
+          <div class="progress-marker marker-normal" style="left: 30%;" title="常态目标 30%"></div>
+          <div class="progress-marker marker-soft" style="left: 35%;" title="预警软上限 35%"></div>
+          <div class="progress-marker marker-hard" style="left: 40%;" title="极限硬上限 40%"></div>
+        </div>
+        <div class="gauge-footer" id="marginStatusText">
+          安全运行中 (处于 25%~30% 常态稳健区间)
+        </div>
+        <!-- 6-Scenario Averaging Breakdown View -->
+        <div class="scenario-breakdown-container" id="scenarioBreakdownContainer">
+          <!-- Dynamically populated by JS: 6-scenario averaging breakdown -->
+        </div>
+      </div>
+
+      <!-- Card 2: Portfolio Open Risk Gauge -->
+      <div class="card gauge-card">
+        <div class="gauge-card-header">
+          <span class="card-icon icon-risk">🛡️</span>
+          <div>
+            <h3>组合总开放风险 (Open Risk)</h3>
+            <p>凯利公式安全映射 · 最大止损总敞口 ≤ 3.0%</p>
+          </div>
+        </div>
+        <div class="metric-main">
+          <div class="metric-num text-blue" id="gaugeRiskVal">¥0</div>
+          <div class="metric-sub" id="gaugeRiskPct">0.0% / 预算 ¥0</div>
+        </div>
+        <div class="progress-container">
+          <div class="progress-bar bar-risk" id="barRisk" style="width: 0%;"></div>
+          <div class="progress-marker marker-soft" style="left: 83%;" title="规划目标 2.5%"></div>
+          <div class="progress-marker marker-hard" style="left: 100%;" title="硬上限 3.0%"></div>
+        </div>
+        <div class="gauge-footer" id="riskStatusText">
+          总持仓全打止损理论损失严控在预算内
+        </div>
+      </div>
+
+      <!-- Card 3: Free Cash Buffer -->
+      <div class="card gauge-card">
+        <div class="gauge-card-header">
+          <span class="card-icon icon-cash">💰</span>
+          <div>
+            <h3>闲置防护现金 (Buffer)</h3>
+            <p>承担浮亏、交易所调保、跳空跌停与追加信号</p>
+          </div>
+        </div>
+        <div class="metric-main">
+          <div class="metric-num text-success" id="gaugeCashVal">¥0</div>
+          <div class="metric-sub" id="gaugeCashPct">0.0% 储备率</div>
+        </div>
+        <div class="progress-container">
+          <div class="progress-bar bar-cash" id="barCash" style="width: 0%;"></div>
+        </div>
+        <div class="gauge-footer" id="cashStatusText">
+          储备资金充足，具备极高抗黑天鹅冲击能力
+        </div>
+      </div>
+
+      <!-- Card 4: Kelly Mathematical Expectancy -->
+      <div class="card gauge-card kelly-detail-card">
+        <div class="gauge-card-header">
+          <span class="card-icon icon-math">📐</span>
+          <div>
+            <h3>凯利数学期望 (Kelly Metrics)</h3>
+            <p>基于大数定律与非对称损益推导</p>
+          </div>
+        </div>
+        <div class="kelly-stats">
+          <div class="k-stat">
+            <span class="k-label">单笔期望值 (E)</span>
+            <span class="k-val" id="kExpectancy">+0.40 R</span>
+          </div>
+          <div class="k-stat">
+            <span class="k-label">全凯利理论值 (f*)</span>
+            <span class="k-val text-warning" id="kFullKelly">13.33%</span>
+          </div>
+          <div class="k-stat">
+            <span class="k-label">分数凯利预算 (f_safe)</span>
+            <span class="k-val text-gold" id="kSafeKelly">2.67%</span>
+          </div>
+          <div class="k-stat">
+            <span class="k-label">50%回撤理论概率</span>
+            <span class="k-val text-success" id="kDrawdownProb">&lt; 1.5%</span>
+          </div>
+        </div>
+        <div class="gauge-footer" id="kellyMessage">
+          正数学期望已锁定
+        </div>
+      </div>
+    </section>
+
+    <!-- Cluster & Sector Risk Tree Breakdown -->
+    <section class="card cluster-section">
+      <div class="panel-header">
+        <div>
+          <h2>机制聚类 (Clustering) 与产业链防火墙</h2>
+          <p class="section-desc">识别表面分散下的同源风险：黑色链(JM/RB/I) + 玻璃建材链(SA/FG)共同受国内地产基建驱动，实施集群硬顶</p>
+        </div>
+        <div class="cluster-summary-tags" id="clusterPills">
+          <!-- Injected via JS -->
+        </div>
+      </div>
+
+      <div class="clusters-grid" id="clustersGrid">
+        <!-- Rendered dynamically via JS -->
+      </div>
+    </section>
+
+    <!-- Full Variety Active Sizing Table -->
+    <section class="card table-section">
+      <div class="table-header-row">
+        <div>
+          <h2>期货全品种活跃合约动态手数与风控明细</h2>
+          <p class="section-desc">拒绝固定1手 · 统一折算为 R-Risk 单位 · 自适应 ATR 有效止损与容量物理截断</p>
+        </div>
+        <div class="table-actions">
+          <div class="search-wrap">
+            <input type="text" id="filterSearch" placeholder="搜索代码/品种/板块 (如 AG, 沪铜, 黑色)...">
+          </div>
+          <div class="sector-tabs" id="sectorTabs">
+            <button class="tab-btn active" data-sector="ALL">全部品种</button>
+            <button class="tab-btn" data-sector="贵金属">贵金属</button>
+            <button class="tab-btn" data-sector="黑色系">黑色系</button>
+            <button class="tab-btn" data-sector="有色金属">有色金属</button>
+            <button class="tab-btn" data-sector="化工能源">化工能源</button>
+            <button class="tab-btn" data-sector="农产品">农产品</button>
+            <button class="tab-btn" data-sector="新能源">新能源</button>
+            <button class="tab-btn" data-sector="金融期货">金融期货</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 选中品种风控与保证金汇总栏 (Selected Risk Degree & Margin Summary Bar) -->
+      <div class="table-summary-bar" id="tableSummaryBar">
+        <div class="summary-chip summary-chip-risk">
+          <div class="chip-label">🛡️ 保证金占用率 (实盘俗称风险度)</div>
+          <div class="chip-val-row">
+            <span class="chip-val text-gold" id="tableSummaryRiskDegree">0.00%</span>
+            <span class="badge badge-success" id="tableSummaryRiskLevel">常态稳健 (≤30%)</span>
+          </div>
+          <div class="chip-sub" id="tableSummaryRiskSub">实盘占用保证金/总权益 · 非止损亏损风险</div>
+        </div>
+
+        <div class="summary-chip summary-chip-margin">
+          <div class="chip-label">⚡ 选中持仓实际占用保证金</div>
+          <div class="chip-val-row">
+            <span class="chip-val text-cyan" id="tableSummaryActualMargin">¥0.00</span>
+          </div>
+          <div class="chip-sub" id="tableSummaryMarginSub">推荐执行总手数: 0 手</div>
+        </div>
+
+        <div class="summary-chip summary-chip-cash">
+          <div class="chip-label">💰 闲置防护现金 (安全垫)</div>
+          <div class="chip-val-row">
+            <span class="chip-val text-success" id="tableSummaryCashBuffer">¥0.00</span>
+          </div>
+          <div class="chip-sub" id="tableSummaryCashSub">防守缓冲储备: 0.00%</div>
+        </div>
+
+        <div class="summary-chip">
+          <div class="chip-label">📋 组合总开放风险 (已选品种)</div>
+          <div class="chip-val-row">
+            <span class="chip-val" id="tableSummaryCount">已选 0 / 48 个品种</span>
+          </div>
+          <div class="chip-sub text-warning" id="tableSummaryOpenRisk">总开放风险: ¥0.00 (0.00%)</div>
+        </div>
+      </div>
+
+      <!-- 组合全开仓资本需求与风险承受度独立评估面板 (Portfolio Feasibility & Capital Requirement) -->
+      <div class="feasibility-panel" id="feasibilityPanel">
+        <div class="feasibility-header">
+          <div class="feasibility-title">
+            <span class="feasibility-icon">🎯</span>
+            <strong>自选品种组合资本需求与风险承载力评估</strong>
+            <span class="badge badge-success" id="feasibilityBadge">资金充裕 (可稳健全开)</span>
+          </div>
+          <div class="feasibility-tip">
+            💡 动态平衡说明：若勾选品种过多或单手风险过大，系统已自动削峰填谷（如动态降低螺纹钢手数以腾出焦煤等高价值品种的建仓预算）
+          </div>
+        </div>
+        <div class="feasibility-grid">
+          <div class="feasibility-card">
+            <span class="f-card-label">自选组合推荐持仓实际保证金</span>
+            <span class="f-card-val text-blue" id="fValFullMargin">¥0.00</span>
+            <span class="f-card-sub" id="fSubFullMargin">占当前本金 0.00%</span>
+          </div>
+          <div class="feasibility-card">
+            <span class="f-card-label">自选组合推荐总理论止损风险</span>
+            <span class="f-card-val text-warning" id="fValFullRisk">¥0.00</span>
+            <span class="f-card-sub" id="fSubFullRisk">全击穿止损敞口: 0.00%</span>
+          </div>
+          <div class="feasibility-card">
+            <span class="f-card-label">稳健全持仓建议最低本金规模</span>
+            <span class="f-card-val text-gold" id="fValMinEquity">¥0.00</span>
+            <span class="f-card-sub" id="fSubMinEquity">按 ≤30% 保证金与 ≤3% 风险规划</span>
+          </div>
+        </div>
+        <div class="feasibility-footer" id="feasibilityMsg">
+          当前资金充裕，可稳健承载所选品种全部建仓。
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="sizing-table" id="sizingTable">
+          <thead>
+            <tr>
+              <th width="40"><input type="checkbox" id="checkAll" checked></th>
+              <th>品种代码</th>
+              <th>名称</th>
+              <th>板块 / 机制集群</th>
+              <th id="thPriceHeader">参考现价 (2026-09-15 昨收)</th>
+              <th>真实ATR(14)</th>
+              <th>跳空波动风险</th>
+              <th>有效止损</th>
+              <th>1手真实风险</th>
+              <th>1手保证金</th>
+              <th>物理上限</th>
+              <th class="th-highlight">推荐执行手数</th>
+              <th title="单品种风险占组合总开放风险的权重贡献 (各品种占比之和恒为 100.0%)">风险占比</th>
+              <th>占用保证金(¥)</th>
+            </tr>
+          </thead>
+          <tbody id="sizingTableBody">
+            <!-- Injected via JS -->
+          </tbody>
+          <tfoot id="sizingTableFoot">
+            <!-- Summary row injected via JS -->
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- Stress Testing Section -->
+    <section class="card stress-section">
+      <div class="panel-header">
+        <div>
+          <h2>极端行情压力测试 (Stress Scenarios)</h2>
+          <p class="section-desc">严格对持仓实施交易所调保、黑天鹅跳空与产业链共振冲击极端压力测试</p>
+        </div>
+      </div>
+
+      <div class="stress-grid" id="stressGrid">
+        <!-- Rendered dynamically via JS -->
+      </div>
+    </section>
+
+    <!-- Floating Toast Notification for Rebalance & Position Cancellation Alerts -->
+    <div class="toast-container" id="toastContainer"></div>
+
+  </main>
+
+  <!-- Modal: Mathematical Formula & Sizing Derivation -->
+  <div class="modal-overlay" id="modalFormula">
+    <div class="modal-card modal-large">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 20px;">📐</span>
+          <h3 id="formulaModalTitle" style="margin: 0;">推荐执行手数详细数学公式推导与计算过程</h3>
+        </div>
+        <button class="modal-close" id="btnCloseFormula">&times;</button>
+      </div>
+      <div class="modal-body formula-content" id="formulaBody">
+        <!-- Injected dynamically via JS -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="btnCloseFormulaBtn">已充分理解计算推导</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/presets.js?v=13"></script>
+  <script src="/static/js/app.js?v=13"></script>
+</body>
+</html>
