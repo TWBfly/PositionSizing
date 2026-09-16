@@ -14,8 +14,8 @@ if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 
 def main():
-    host = "127.0.0.1"
-    port = 8000
+    host = os.environ.get("HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", 8000))
     url = f"http://{host}:{port}"
     print(f"=====================================================================")
     print(f"  Futures Position Sizing & Risk Management System (1.md Quant)")
@@ -23,8 +23,8 @@ def main():
     print(f"  API Docs:      {url}/docs")
     print(f"=====================================================================")
 
-    # Run uvicorn server with auto-reload enabled
-    uvicorn.run("backend.main:app", host=host, port=port, reload=True, log_level="info")
+    # Run uvicorn server
+    uvicorn.run("backend.main:app", host=host, port=port, reload=False, log_level="info")
 
 if __name__ == "__main__":
     main()
